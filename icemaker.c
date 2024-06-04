@@ -121,6 +121,7 @@ void TIM1_BRK_UP_TRG_COM_IRQHandler(void) {
 			rtime++;
 			
 			vtime++;
+
     }
 }
 
@@ -192,43 +193,88 @@ int hall_feedback(void){
 			t1 = 0;
 			t2 = 0;
 		}
-
-		
-		
-		//else if(t2 == 0) {  // Condition for flat lower state
-			//hall_f = 0;                // Make the hall feedback  = 0
-		//}
-		
 	}
 	return hall_f;
 }
+
+
+void valve_config(void){
+	RCC->IOPENR |= RCC_IOPENR_GPIOBEN;    	//GPIOB clock En
+	GPIOB->MODER  &=~ GPIO_MODER_MODE7_1; 
+	GPIOB->MODER  |= GPIO_MODER_MODE7_0;  	//make PB7 as GPIO output
 	
-void ice_box_rotation(void){
-	uart_send_num(hall_feedback());
-	uart_send_char("\n\r");
-	if((rtime>=0)&&(rtime<=8)){
-		motor_control(1);             // Motor1 rotating forward
+	GPIOB -> ODR |= (1<<7);
+	GPIOB ->BSRR |= (1<<7);                 // PB7 high for turning valve on
+	if((vtime > 7)){
+		GPIOB -> ODR &=~ (1<<7);
+		GPIOB ->BSRR &=~ (1<<7);               // PB7 low for turning valve low
+		VALVE_FILLED_FLAG = 1;
+		uart_send_char("valve filled");
 	}
-	if((rtime>8)&&(rtime<=10)){
-		motor_control(3);             // Motor1 stop
-	}
-	else if((rtime>10)&&(rtime<=18)){
-		motor_control(2);             // Motor1 rotating reverse
-	}
-	else if((rtime>18)&&(rtime<=20)){
-		motor_control(3);             // Motor1 stop
-	}
-	else if(rtime > 20){
-		delay(1000);
-		rtime = 0;
-		
-		
-		// Reset all the required flag and var
-		hall_f = 0;
+	else {
+		VALVE_FILLED_FLAG = 0;
+		uart_send_char("valve is not filled");
 	}
 }
 
 
+
+void ice_box_rotation(void){
+	uart_send_num(hall_feedback());
+	uart_send_char("\n\r");
+	
+	if ((rtime >= 0)&&(rtime <= 2)){
+		motor_control(1);
+	}
+	if((hall_feedback() == 0)){
+		if((rtime > 2)&&(rtime <= 8)){
+			motor_control(1);             // Motor1 rotating forward
+		}
+		if((rtime>8)&&(rtime<=10)){
+			motor_control(3);             // Motor1 stop
+		}
+		else if((rtime>10)&&(rtime<=18)){
+			motor_control(2);             // Motor1 rotating reverse
+		}
+		else if((rtime>18)&&(rtime<=20)){
+			motor_control(3);             // Motor1 stop
+		}
+		else if(rtime > 20){
+			delay(1000);
+			
+			
+			// Reset all the required flag and var
+			rtime = 0;
+			hall_f = 0;
+			
+			IB = 0;  // Ice box is full
+			IC = 0;  // Ice container is full
+		}
+	}
+	else if((hall_feedback() == 1)){     // Hall feedback = 1, that means motor should be run in reverse
+		uart_send_char("Hall feedback = 1");
+		if ((rtime > 3)&&(rtime <= 5)){
+			motor_control(3);            // Turn motor off for 2 seconds
+		}
+		else if((rtime > 5) && (rtime <=9)){
+			motor_control(2);            // Rotate the motor in reverse for 3 seconds
+		}
+		else if((rtime > 9) && (rtime <= 11)){
+			motor_control(3);            // Turn motor off and keep it for 2 seconds 
+		}
+		else if(rtime > 11){
+			//Reset all required flag and var
+			rtime = 0;
+			hall_f = 0;
+			IB = 1; // Ice box is full
+			IC = 1; // Ice container is full
+		}
+	}
+}
+
+void total_operation(void){
+	
+}
 
 
 

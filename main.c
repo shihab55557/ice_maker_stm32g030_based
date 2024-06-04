@@ -20,8 +20,9 @@ int main(void) {
 		timer_Init(0xFFF, 0xF43);
 		adc_init();
     while (1) {
-			ice_box_rotation();
-			delay(100);
+			//ice_box_rotation();
+			delay(1000);
+			valve_config();
     }
 }
 
